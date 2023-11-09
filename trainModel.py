@@ -16,6 +16,7 @@ import datetime as dt
 from torch.utils.data import DataLoader, Dataset
 from sklearn.metrics import accuracy_score, confusion_matrix
 import json
+from sklearn.preprocessing import QuantileTransformer
 from configparser import ConfigParser
 import matplotlib.pyplot as plt
 from nasnet_mobile import *
@@ -26,7 +27,7 @@ from getTrainTestData import *
 from dataset import *
 from configparser import ConfigParser
 
-configfilename = 'pixelwise+knn+dn+binned'
+configfilename = 'knn_MLP'
 
 config = ConfigParser()
 config.read('configfiles/'+configfilename+'.ini')
@@ -41,7 +42,7 @@ use_binned_data = config.getint('main', 'use_binned_data')
 
 #positive_data, positive_concs, positive_dates, negative_data, negative_concs, negative_dates = pullConvData(1755, 1114)
 if(abovebelow50000 == 0):
-	data_folder = '/home/UFAD/rfick/Work/Github_repos/red-tide-conv/red_tide_conv_selected_data_correct/'
+	data_folder = '/data-drive-12521/MODIS-OC/MODIS-OC-data/red_tide_conv_selected_data_correct_multiclass/'
 else:
 	data_folder = '/home/UFAD/rfick/Work/Github_repos/red-tide-conv/red_tide_conv_selected_data_correct_abovebelow50000/'
 
@@ -117,10 +118,10 @@ for randomseed in randomseeds:
 		validationDataset = RedTideDatasetPixelwise(validationDataTensor, validationTargetsTensor)
 		validationDataloader = DataLoader(validationDataset, batch_size=mb_size, shuffle=True)
 
-		model = Predictor(input_dim=nonValidationDataTensor.shape[1], num_classes=2).cuda()
+		model = Predictor(input_dim=nonValidationDataTensor.shape[1], num_classes=6).cuda()
 		optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-		bestValModel = Predictor(input_dim=nonValidationDataTensor.shape[1], num_classes=2).cuda()
+		bestValModel = Predictor(input_dim=nonValidationDataTensor.shape[1], num_classes=6).cuda()
 
 	bestValidationLoss = math.inf
 	epochsWithoutImprovement = 0

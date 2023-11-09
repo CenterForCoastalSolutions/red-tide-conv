@@ -19,9 +19,12 @@ from detectors.SotoEtAlDetector import *
 from detectors.StumpfEtAlDetector import *
 from detectors.Tomlinson2009EtAlDetector import *
 from configparser import ConfigParser
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from ROCutils import *
 
-configfilename = 'pixelwise+knn+dn+binned'
+np.set_printoptions(suppress=True)
+
+configfilename = 'pixelwise+knn+dn'
 
 filename_roc_curve_info = 'roc_curve_info'
 
@@ -38,7 +41,7 @@ use_binned_data = config.getint('main', 'use_binned_data')
 
 #positive_data, positive_concs, positive_dates, negative_data, negative_concs, negative_dates = pullConvData(1755, 1114)
 if(abovebelow50000 == 0):
-	data_folder = '/home/UFAD/rfick/Work/Github_repos/red-tide-conv/red_tide_conv_selected_data_correct/'
+	data_folder = '/data-drive-12521/MODIS-OC/MODIS-OC-data/red_tide_conv_selected_data_correct_multiclass/'
 else:
 	data_folder = '/home/UFAD/rfick/Work/Github_repos/red-tide-conv/red_tide_conv_selected_data_correct_abovebelow50000/'
 
@@ -100,6 +103,10 @@ tprsStumpf = []
 refFprTomlinson = []
 tprsTomlinson = []
 
+alltrueclasses = []
+allpredictedTargets6Class = []
+
+
 for randomseed in randomseeds:
 	print('Testing model #{}'.format(model_number))
 
@@ -109,7 +116,7 @@ for randomseed in randomseeds:
 
 	if(test_lit_methods == 0):
 		features_to_use=['par', 'Kd_490', 'chlor_a', 'Rrs_443', 'Rrs_469', 'Rrs_488', 'nflh', 'depth']
-		trainData, trainKNN, trainTargets, trainDates, testData, testKNN, testTargets, testDates = getTrainTestData(data_folder, features_to_use, use_nn_feature, depth_normalize, randomseed, use_binned_data, pixelwise, test_only=True)
+		trainData, trainKNN, trainTargets, trainDates, trainConcs, testData, testKNN, testTargets, testDates, testConcs = getTrainTestData(data_folder, features_to_use, use_nn_feature, depth_normalize, randomseed, use_binned_data, pixelwise, test_only=True)
 
 		if(pixelwise == 0):
 			#model = NASNetAMobile(num_classes=2).cuda()
@@ -133,13 +140,18 @@ for randomseed in randomseeds:
 				output = model(mini_batch_data, mini_batch_knn)
 				predictedTargets[targetIndex:targetIndex+mb_size, :] = output.detach().cpu().numpy()
 				targetIndex += mb_size
+
+			predictedTargets2Class = predictedTargets
+
+			trueClasses = np.argmax(testTargets, axis=1)
+			trueClasses2Class = trueClasses
 		else:
 			testKNN = np.expand_dims(testKNN, axis=1)
 			testData = np.concatenate((testData, testKNN), axis=1)
 			testDataTensor = torch.Tensor(testData).float().cuda()
 			testTargetsTensor = torch.Tensor(testTargets).float().cuda()
 
-			model = Predictor(input_dim=testDataTensor.shape[1], num_classes=2).cuda()
+			model = Predictor(input_dim=testDataTensor.shape[1], num_classes=6).cuda()
 			model.load_state_dict(torch.load(save_folder+'/'+str(randomseed)+'model_correct.pt'))
 			model.eval()
 
@@ -151,14 +163,43 @@ for randomseed in randomseeds:
 			predictedTargets = np.zeros_like(testTargets)
 			targetIndex = 0
 
+			predictedClasses = np.zeros(testTargets.shape[0])
+			actualClasses = np.zeros(testTargets.shape[0])
+
 			for mini_batch_data, mini_batch_labels in testDataloader:
 				output = model(mini_batch_data)
-				predictedTargets[targetIndex:targetIndex+mb_size, :] = output.detach().cpu().numpy()
+				#print(np.argmax(output.detach().cpu().numpy(), axis=1))
+				#print(mini_batch_labels)
+				#asdf
+				predictedTargets[targetIndex:targetIndex+mb_size] = output.detach().cpu().numpy()
 				targetIndex += mb_size
+
+			predictedTargets2Class = np.zeros((predictedTargets.shape[0], 2))
+			predictedTargets2Class[:, 0] = np.sum(predictedTargets[:, 0:3], axis=1)
+			predictedTargets2Class[:, 1] = np.sum(predictedTargets[:, 3:], axis=1)
+
+			trueClasses = np.argmax(testTargets, axis=1)
+			trueClasses2Class = np.zeros_like(trueClasses)
+			trueClasses2Class[trueClasses < 3] = 0
+			trueClasses2Class[trueClasses >= 3] = 1
+
+
+
+			predictedTargets6Class = np.argmax(predictedTargets, axis=1)
+			if(alltrueclasses == []):
+				alltrueclasses = trueClasses
+			else:
+				alltrueclasses = np.concatenate((alltrueclasses, trueClasses))
+			if(allpredictedTargets6Class == []):
+				allpredictedTargets6Class = predictedTargets6Class
+			else:
+				allpredictedTargets6Class = np.concatenate((allpredictedTargets6Class, predictedTargets6Class))
+			print(alltrueclasses.shape)
+			print(allpredictedTargets6Class.shape)
 	else:
 		#Code goes here
 		features_to_use=['Rrs_667', 'Rrs_678', 'chl_ocx', 'Rrs_443', 'Rrs_555', 'Rrs_488', 'nflh', 'chlor_a', 'Rrs_531']
-		trainData, trainKNN, trainTargets, trainDates, testData, testKNN, testTargets, testDates = getTrainTestData(data_folder, features_to_use, use_nn_feature, depth_normalize, randomseed, pixelwise, test_only=True)
+		trainData, trainKNN, trainTargets, trainDates, testData, testKNN, testTargets, testDates = getTrainTestData(data_folder, features_to_use, use_nn_feature, depth_normalize, randomseed, use_binned_data, pixelwise, test_only=True)
 
 		AminRBDFeatures = [0, 1]
 		CannizzaroFeatures = [2, 3, 4]
@@ -179,91 +220,121 @@ for randomseed in randomseeds:
 		Stumpf = StumpfEtAlDetector(StumpfInput)
 		Tomlinson = Tomlinson2009EtAlDetector(testData[:, TomlinsonFeatures])
 
-
-	trueClasses = np.argmax(testTargets, axis=1)
+		trueClasses = np.argmax(testTargets, axis=1)
+		trueClasses2Class = np.zeros_like(trueClasses)
+		trueClasses2Class[trueClasses < 3] = 0
+		trueClasses2Class[trueClasses >= 3] = 1
 
 	if(test_lit_methods == 0):
-		predictedClasses = np.argmax(predictedTargets, axis=1)
+		predictedClasses = np.argmax(predictedTargets2Class, axis=1)
 
-		accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFpr, tprs = addNewModelResultsROC(predictedTargets[:, 1], trueClasses, refFpr, tprs)
+		refFpr, tprs = addNewModelResultsROC(predictedTargets2Class[:, 1], trueClasses2Class, refFpr, tprs)
+
+		#np.save('saved_model_outputs/testData_woknn{}.npy'.format(randomseed), testData)
+		#np.save('saved_model_outputs/predictedTargets_woknn{}.npy'.format(randomseed), predictedClasses)
+		#np.save('saved_model_outputs/trueClasses_woknn{}.npy'.format(randomseed), trueClasses)
 	else:
-		predictedClasses = RBD > 0
+		predictedClasses = RBD > 0.015
 
-		RBD_accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		RBD_kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		RBD_f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		RBD_accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		RBD_kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		RBD_f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFprRBD, tprsRBD = addNewModelResultsROC(RBD, trueClasses, refFprRBD, tprsRBD)
+		refFprRBD, tprsRBD = addNewModelResultsROC(RBD, trueClasses2Class, refFprRBD, tprsRBD)
 
 		predictedClasses = RBDKBBI
 
-		RBDKBBI_accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		RBDKBBI_kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		RBDKBBI_f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		RBDKBBI_accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		RBDKBBI_kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		RBDKBBI_f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFprRBDKBBI, tprsRBDKBBI = addNewModelResultsROC(RBDKBBI, trueClasses, refFprRBDKBBI, tprsRBDKBBI)
+		refFprRBDKBBI, tprsRBDKBBI = addNewModelResultsROC(RBDKBBI, trueClasses2Class, refFprRBDKBBI, tprsRBDKBBI)
 
 		predictedClasses = Cannizzaro2008
 
-		Cannizzaro2008_accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		Cannizzaro2008_kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		Cannizzaro2008_f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		Cannizzaro2008_accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		Cannizzaro2008_kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		Cannizzaro2008_f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFprCannizzaro2008, tprsCannizzaro2008 = addNewModelResultsROC(Cannizzaro2008, trueClasses, refFprCannizzaro2008, tprsCannizzaro2008)
+		refFprCannizzaro2008, tprsCannizzaro2008 = addNewModelResultsROC(Cannizzaro2008, trueClasses2Class, refFprCannizzaro2008, tprsCannizzaro2008)
 
 		predictedClasses = Cannizzaro2009
 
-		Cannizzaro2009_accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		Cannizzaro2009_kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		Cannizzaro2009_f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		Cannizzaro2009_accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		Cannizzaro2009_kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		Cannizzaro2009_f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFprCannizzaro2009, tprsCannizzaro2009 = addNewModelResultsROC(Cannizzaro2009, trueClasses, refFprCannizzaro2009, tprsCannizzaro2009)
+		refFprCannizzaro2009, tprsCannizzaro2009 = addNewModelResultsROC(Cannizzaro2009, trueClasses2Class, refFprCannizzaro2009, tprsCannizzaro2009)
 
-		predictedClasses = Lou > 0
+		predictedClasses = Lou > 2.8
 
-		Lou_accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		Lou_kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		Lou_f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		Lou_accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		Lou_kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		Lou_f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFprLou, tprsLou = addNewModelResultsROC(Lou, trueClasses, refFprLou, tprsLou)
+		refFprLou, tprsLou = addNewModelResultsROC(Lou, trueClasses2Class, refFprLou, tprsLou)
 
 		predictedClasses = Shehhi > 0
 
-		Shehhi_accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		Shehhi_kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		Shehhi_f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		Shehhi_accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		Shehhi_kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		Shehhi_f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFprShehhi, tprsShehhi = addNewModelResultsROC(Shehhi, trueClasses, refFprShehhi, tprsShehhi)
+		refFprShehhi, tprsShehhi = addNewModelResultsROC(Shehhi, trueClasses2Class, refFprShehhi, tprsShehhi)
 
 		predictedClasses = Soto
 
-		Soto_accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		Soto_kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		Soto_f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		Soto_accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		Soto_kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		Soto_f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFprSoto, tprsSoto = addNewModelResultsROC(Soto, trueClasses, refFprSoto, tprsSoto)
+		refFprSoto, tprsSoto = addNewModelResultsROC(Soto, trueClasses2Class, refFprSoto, tprsSoto)
 
-		predictedClasses = Stumpf > 0
+		predictedClasses = Stumpf > 0.5
 
-		Stumpf_accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		Stumpf_kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		Stumpf_f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		Stumpf_accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		Stumpf_kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		Stumpf_f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFprStumpf, tprsStumpf = addNewModelResultsROC(Stumpf, trueClasses, refFprStumpf, tprsStumpf)
+		refFprStumpf, tprsStumpf = addNewModelResultsROC(Stumpf, trueClasses2Class, refFprStumpf, tprsStumpf)
 
 		predictedClasses = Tomlinson > 0
 
-		Tomlinson_accs[model_number] = accuracy_score(trueClasses, predictedClasses)
-		Tomlinson_kappas[model_number] = cohen_kappa_score(trueClasses, predictedClasses)
-		Tomlinson_f1s[model_number] = f1_score(trueClasses, predictedClasses)
+		Tomlinson_accs[model_number] = accuracy_score(trueClasses2Class, predictedClasses)
+		Tomlinson_kappas[model_number] = cohen_kappa_score(trueClasses2Class, predictedClasses)
+		Tomlinson_f1s[model_number] = f1_score(trueClasses2Class, predictedClasses)
 
-		refFprTomlinson, tprsTomlinson = addNewModelResultsROC(Tomlinson, trueClasses, refFprTomlinson, tprsTomlinson)
+		refFprTomlinson, tprsTomlinson = addNewModelResultsROC(Tomlinson, trueClasses2Class, refFprTomlinson, tprsTomlinson)
 
 	model_number = model_number + 1
+
+plt.figure(dpi=500)
+cm = confusion_matrix(alltrueclasses, allpredictedTargets6Class, normalize='true')
+disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+disp.plot()
+ax = plt.gca()
+plt.xticks(np.arange(6), ["0-1,000", "1,000-10,000", "10,000-50,000", "50,000-100,000", "100,000-1,000,000", "1,000,000+"], rotation='vertical')
+ax.set_xlabel("Predicted Concentration (cells/L)")
+plt.yticks(np.arange(6), ["0-1,000", "1,000-10,000", "10,000-50,000", "50,000-100,000", "100,000-1,000,000", "1,000,000+"])
+ax.set_ylabel("True Concentration (cells/L)")
+plt.title('Confusion Matrix Normalized by Row')
+plt.savefig('confusion_matrix_true_norm.png', bbox_inches='tight')
+
+plt.figure(dpi=500)
+cm = confusion_matrix(alltrueclasses, allpredictedTargets6Class, normalize='pred')
+disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+disp.plot()
+ax = plt.gca()
+plt.xticks(np.arange(6), ["0-1,000", "1,000-10,000", "10,000-50,000", "50,000-100,000", "100,000-1,000,000", "1,000,000+"], rotation='vertical')
+ax.set_xlabel("Predicted Concentration (cells/L)")
+plt.yticks(np.arange(6), ["0-1,000", "1,000-10,000", "10,000-50,000", "50,000-100,000", "100,000-1,000,000", "1,000,000+"])
+ax.set_ylabel("True Concentration (cells/L)")
+plt.title('Confusion Matrix Normalized by Column')
+plt.savefig('confusion_matrix_pred_norm.png', bbox_inches='tight')
 
 if(test_lit_methods == 0):
 	print('Mean Accuracy: {}'.format(np.mean(accs)))

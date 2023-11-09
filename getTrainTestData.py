@@ -8,12 +8,24 @@ from convertFeaturesByDepth import *
 def getTrainTestData(data_folder, features_to_use, use_nn_feature, depth_normalize, randomseed, use_binned_data, pixelwise, test_only=False):
 	np.random.seed(randomseed)
 
-	positive_rawdata = np.load(data_folder+'positive_data.npy')
-	positive_concs = np.load(data_folder+'positive_concs.npy')
-	positive_dates = np.load(data_folder+'positive_dates.npy', allow_pickle=True)
-	negative_rawdata = np.load(data_folder+'negative_data.npy')
-	negative_concs = np.load(data_folder+'negative_concs.npy')
-	negative_dates = np.load(data_folder+'negative_dates.npy', allow_pickle=True)
+	background_rawdata = np.load(data_folder+'background_data.npy')
+	background_concs = np.load(data_folder+'background_concs.npy')
+	background_dates = np.load(data_folder+'background_dates.npy', allow_pickle=True)
+	verylow_rawdata = np.load(data_folder+'verylow_data.npy')
+	verylow_concs = np.load(data_folder+'verylow_concs.npy')
+	verylow_dates = np.load(data_folder+'verylow_dates.npy', allow_pickle=True)
+	lowbelow50000_rawdata = np.load(data_folder+'lowbelow50000_data.npy')
+	lowbelow50000_concs = np.load(data_folder+'lowbelow50000_concs.npy')
+	lowbelow50000_dates = np.load(data_folder+'lowbelow50000_dates.npy', allow_pickle=True)
+	lowabove50000_rawdata = np.load(data_folder+'lowabove50000_data.npy')
+	lowabove50000_concs = np.load(data_folder+'lowabove50000_concs.npy')
+	lowabove50000_dates = np.load(data_folder+'lowabove50000_dates.npy', allow_pickle=True)
+	medium_rawdata = np.load(data_folder+'medium_data.npy')
+	medium_concs = np.load(data_folder+'medium_concs.npy')
+	medium_dates = np.load(data_folder+'medium_dates.npy', allow_pickle=True)
+	high_rawdata = np.load(data_folder+'high_data.npy')
+	high_concs = np.load(data_folder+'high_concs.npy')
+	high_dates = np.load(data_folder+'high_dates.npy', allow_pickle=True)
 
 	feature_order = ['aot_869', 'angstrom', 'Rrs_412', 'Rrs_443', 'Rrs_469', 'Rrs_488', 'Rrs_531',\
 					 'Rrs_547', 'Rrs_555', 'Rrs_645', 'Rrs_667', 'Rrs_678', 'chlor_a', 'chl_ocx',\
@@ -24,39 +36,75 @@ def getTrainTestData(data_folder, features_to_use, use_nn_feature, depth_normali
 		feature_bands.append(feature_order.index(features_to_use[i]))
 
 	if(pixelwise == 0):
-		positive_data = positive_rawdata[:, :, :, feature_bands]
-		positive_lons = np.squeeze(positive_rawdata[:, 50, 50, 7])
-		positive_lats = np.squeeze(positive_rawdata[:, 50, 50, 8])
-		negative_data = negative_rawdata[:, :, :, feature_bands]
-		negative_lons = np.squeeze(negative_rawdata[:, 50, 50, 7])
-		negative_lats = np.squeeze(negative_rawdata[:, 50, 50, 8])
+		background_data = np.squeeze(background_rawdata[:, :, :, feature_bands])
+		background_lons = np.squeeze(background_rawdata[:, 50, 50, 7])
+		background_lats = np.squeeze(background_rawdata[:, 50, 50, 8])
+		verylow_data = np.squeeze(verylow_rawdata[:, :, :, feature_bands])
+		verylow_lons = np.squeeze(verylow_rawdata[:, 50, 50, 7])
+		verylow_lats = np.squeeze(verylow_rawdata[:, 50, 50, 8])
+		lowbelow50000_data = np.squeeze(lowbelow50000_rawdata[:, :, :, feature_bands])
+		lowbelow50000_lons = np.squeeze(lowbelow50000_rawdata[:, 50, 50, 7])
+		lowbelow50000_lats = np.squeeze(lowbelow50000_rawdata[:, 50, 50, 8])
+		lowabove50000_data = np.squeeze(lowabove50000_rawdata[:, :, :, feature_bands])
+		lowabove50000_lons = np.squeeze(lowabove50000_rawdata[:, 50, 50, 7])
+		lowabove50000_lats = np.squeeze(lowabove50000_rawdata[:, 50, 50, 8])
+		medium_data = np.squeeze(medium_rawdata[:, :, :, feature_bands])
+		medium_lons = np.squeeze(medium_rawdata[:, 50, 50, 7])
+		medium_lats = np.squeeze(medium_rawdata[:, 50, 50, 8])
+		high_data = np.squeeze(high_rawdata[:, :, :, feature_bands])
+		high_lons = np.squeeze(high_rawdata[:, 50, 50, 7])
+		high_lats = np.squeeze(high_rawdata[:, 50, 50, 8])
 
-		positive_data = np.nan_to_num(positive_data)
-		positive_data = np.moveaxis(positive_data, 3, 1)
-		negative_data = np.nan_to_num(negative_data)
-		negative_data = np.moveaxis(negative_data, 3, 1)
+		background_data = np.nan_to_num(background_data)
+		background_data = np.moveaxis(background_data, 3, 1)
+		verylow_data = np.nan_to_num(verylow_data)
+		verylow_data = np.moveaxis(verylow_data, 3, 1)
+		lowbelow50000_data = np.nan_to_num(lowbelow50000_data)
+		lowbelow50000_data = np.moveaxis(lowbelow50000_data, 3, 1)
+		lowabove50000_data = np.nan_to_num(lowabove50000_data)
+		lowabove50000_data = np.moveaxis(lowabove50000_data, 3, 1)
+		medium_data = np.nan_to_num(medium_data)
+		medium_data = np.moveaxis(medium_data, 3, 1)
+		high_data = np.nan_to_num(high_data)
+		high_data = np.moveaxis(high_data, 3, 1)
 
-		data = np.concatenate((positive_data, negative_data), axis=0)
-		concs = np.concatenate((positive_concs, negative_concs))
-		lons = np.concatenate((positive_lons, negative_lons))
-		lats = np.concatenate((positive_lats, negative_lats))
-		dates = np.concatenate((positive_dates, negative_dates))
+		data = np.concatenate((background_data, verylow_data, lowbelow50000_data, lowabove50000_data, medium_data, high_data), axis=0)
+		concs = np.concatenate((background_concs, verylow_concs, lowbelow50000_concs, lowabove50000_concs, medium_concs, high_concs))
+		lons = np.concatenate((background_lons, verylow_lons, lowbelow50000_lons, lowabove50000_lons, medium_lons, high_lons))
+		lats = np.concatenate((background_lats, verylow_lats, lowbelow50000_lats, lowabove50000_lats, medium_lats, high_lats))
+		dates = np.concatenate((background_dates, verylow_dates, lowbelow50000_dates, lowabove50000_dates, medium_dates, high_dates))
 	else:
-		positive_data = np.squeeze(positive_rawdata[:, 50, 50, feature_bands])
-		positive_lons = np.squeeze(positive_rawdata[:, 50, 50, 7])
-		positive_lats = np.squeeze(positive_rawdata[:, 50, 50, 8])
-		negative_data = np.squeeze(negative_rawdata[:, 50, 50, feature_bands])
-		negative_lons = np.squeeze(negative_rawdata[:, 50, 50, 7])
-		negative_lats = np.squeeze(negative_rawdata[:, 50, 50, 8])
+		background_data = np.squeeze(background_rawdata[:, 50, 50, feature_bands])
+		background_lons = np.squeeze(background_rawdata[:, 50, 50, 7])
+		background_lats = np.squeeze(background_rawdata[:, 50, 50, 8])
+		verylow_data = np.squeeze(verylow_rawdata[:, 50, 50, feature_bands])
+		verylow_lons = np.squeeze(verylow_rawdata[:, 50, 50, 7])
+		verylow_lats = np.squeeze(verylow_rawdata[:, 50, 50, 8])
+		lowbelow50000_data = np.squeeze(lowbelow50000_rawdata[:, 50, 50, feature_bands])
+		lowbelow50000_lons = np.squeeze(lowbelow50000_rawdata[:, 50, 50, 7])
+		lowbelow50000_lats = np.squeeze(lowbelow50000_rawdata[:, 50, 50, 8])
+		lowabove50000_data = np.squeeze(lowabove50000_rawdata[:, 50, 50, feature_bands])
+		lowabove50000_lons = np.squeeze(lowabove50000_rawdata[:, 50, 50, 7])
+		lowabove50000_lats = np.squeeze(lowabove50000_rawdata[:, 50, 50, 8])
+		medium_data = np.squeeze(medium_rawdata[:, 50, 50, feature_bands])
+		medium_lons = np.squeeze(medium_rawdata[:, 50, 50, 7])
+		medium_lats = np.squeeze(medium_rawdata[:, 50, 50, 8])
+		high_data = np.squeeze(high_rawdata[:, 50, 50, feature_bands])
+		high_lons = np.squeeze(high_rawdata[:, 50, 50, 7])
+		high_lats = np.squeeze(high_rawdata[:, 50, 50, 8])
 
-		positive_data = np.nan_to_num(positive_data)
-		negative_data = np.nan_to_num(negative_data)
+		background_data = np.nan_to_num(background_data)
+		verylow_data = np.nan_to_num(verylow_data)
+		lowbelow50000_data = np.nan_to_num(lowbelow50000_data)
+		lowabove50000_data = np.nan_to_num(lowabove50000_data)
+		medium_data = np.nan_to_num(medium_data)
+		high_data = np.nan_to_num(high_data)
 
-		data = np.concatenate((positive_data, negative_data), axis=0)
-		concs = np.concatenate((positive_concs, negative_concs))
-		lons = np.concatenate((positive_lons, negative_lons))
-		lats = np.concatenate((positive_lats, negative_lats))
-		dates = np.concatenate((positive_dates, negative_dates))
+		data = np.concatenate((background_data, verylow_data, lowbelow50000_data, lowabove50000_data, medium_data, high_data), axis=0)
+		concs = np.concatenate((background_concs, verylow_concs, lowbelow50000_concs, lowabove50000_concs, medium_concs, high_concs))
+		lons = np.concatenate((background_lons, verylow_lons, lowbelow50000_lons, lowabove50000_lons, medium_lons, high_lons))
+		lats = np.concatenate((background_lats, verylow_lats, lowbelow50000_lats, lowabove50000_lats, medium_lats, high_lats))
+		dates = np.concatenate((background_dates, verylow_dates, lowbelow50000_dates, lowabove50000_dates, medium_dates, high_dates))
 
 	beta = 1
 
@@ -152,23 +200,33 @@ def getTrainTestData(data_folder, features_to_use, use_nn_feature, depth_normali
 		trainKNN = knn_concs[trainInds]
 		trainTargets = targets[trainInds]
 		trainDates = dates[trainInds]
+		trainConcs = concs[trainInds]
 
 		testData = image_data[testInds, :, :, :]
 		testKNN = knn_concs[testInds]
 		testTargets = targets[testInds]
 		testDates = dates[testInds]
+		testConcs = concs[testInds]
 	else:
 		classes = np.zeros((concs.shape[0], 1))
 
 		for i in range(len(classes)):
-			if(concs[i] < 50000):
+			if(concs[i] < 1000):
 				classes[i] = 0
-			else:
+			elif(concs[i] >= 1000 and concs[i] < 10000):
 				classes[i] = 1
+			elif(concs[i] >= 10000 and concs[i] < 50000):
+				classes[i] = 2
+			elif(concs[i] >= 50000 and concs[i] < 100000):
+				classes[i] = 3
+			elif(concs[i] >= 100000 and concs[i] < 1000000):
+				classes[i] = 4
+			else:
+				classes[i] = 5
 
 		classes = classes.astype(int)
 
-		targets = np.zeros((classes.shape[0], 2))
+		targets = np.zeros((classes.shape[0], 6))
 		for i in range(len(classes)):
 			targets[i, classes[i]] = 1
 
@@ -176,11 +234,13 @@ def getTrainTestData(data_folder, features_to_use, use_nn_feature, depth_normali
 		trainKNN = knn_concs[trainInds]
 		trainTargets = targets[trainInds]
 		trainDates = dates[trainInds]
+		trainConcs = concs[trainInds]
 
 		testData = data[testInds, :]
 		testKNN = knn_concs[testInds]
 		testTargets = targets[testInds]
 		testDates = dates[testInds]
+		testConcs = concs[testInds]
 
 	if(depth_normalize == 1):
 		if(pixelwise == 0):
@@ -193,4 +253,4 @@ def getTrainTestData(data_folder, features_to_use, use_nn_feature, depth_normali
 			trainData = convertFeaturesByDepthPixelwise(trainData, features_to_use[0:-1])
 			testData = convertFeaturesByDepthPixelwise(testData, features_to_use[0:-1])
 
-	return trainData, trainKNN, trainTargets, trainDates, testData, testKNN, testTargets, testDates
+	return trainData, trainKNN, trainTargets, trainDates, trainConcs, testData, testKNN, testTargets, testDates, testConcs

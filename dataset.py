@@ -13,7 +13,7 @@ class RedTideDataset(Dataset):
         return self.datamatrix.shape[0]
         
     def __getitem__(self, idx):
-        return self.datamatrix[idx, :, :, :], self.dataknn[idx], self.labels[idx, :]
+        return self.datamatrix[idx, :, :, :], self.dataknn[idx], self.labels[idx]
 
 # Create dataloader for map responses
 class RedTideDatasetPixelwise(Dataset):

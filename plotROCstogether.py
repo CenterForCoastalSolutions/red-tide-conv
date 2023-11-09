@@ -16,6 +16,8 @@ display_names = ['Spatio-temporal KNN + MLP', 'Hill et al. (2020)', 'Tomlinson e
 					'Cannizzaro et al. (2008)', 'Stumpf et al. (2003)', 'Amin et al. (2009) RBD', 'Lou and Hu (2014)', 'Cannizzaro et al. (2009)',\
 					'Al Shehhi et al. (2013)']
 
+plotColors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+
 all_means = []
 all_stds = []
 all_fprs = []
@@ -43,33 +45,28 @@ for file in files_to_display:
 	all_stds.append(tpr_stds)
 	all_fprs.append(fpr)
 
-plt.figure(figsize=(5, 3), dpi=300)
+plt.figure(dpi=500)
+plt.plot([0, 1], [0, 1], 'k--')
+plt.plot([0, 0, 1, 1, 0], [0, 1, 1, 0, 0], 'k')
+plt.xlabel('False Positve Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Model Comparison')
 
 for i in range(len(all_means)):
 	tpr_means = all_means[i]
 	tpr_stds = all_stds[i]
 	fpr = all_fprs[i]
 
-	ax = plt.subplot(3, 4, i+1)
-	ax.set_xlim(-0.05, 1.05)
-	ax.set_ylim(-0.05, 1.05)
-	ax.xaxis.set_tick_params(labelsize=5)
-	ax.yaxis.set_tick_params(labelsize=5)
-	ax.plot([0, 1], [0, 1], 'k--')
-	ax.plot([0, 0, 1, 1, 0], [0, 1, 1, 0, 0], 'k')
-
-	# Plot all other means
-	for j in range(len(all_means)):
-		if(i != j):
-			tpr_means_other = all_means[j]
-			fpr_other = all_fprs[j]
-			ax.plot(fpr_other, tpr_means_other, color='grey', alpha=0.5, zorder=0, linewidth=1)
-
 	# margin of error for 95% confidence interval
 	# margin of error = z*(population standard deviation/sqrt(n))
 	# for 95% CI, z=1.96
 	tpr_moes = 1.96*(tpr_stds/(math.sqrt(21)))
-	ax.plot(fpr, tpr_means, color='blue', zorder=10, linewidth=1)
+	markertouse = ''
+	if(i <= 5):
+		markertouse = 'solid'
+	else:
+		markertouse = 'dashed'
+	plt.plot(fpr, tpr_means, label=display_names[i], color=plotColors[i%len(plotColors)], zorder=10, linewidth=3, linestyle=markertouse)
 	x_values = np.concatenate((fpr, np.flip(fpr)))
 	y_values = np.concatenate((tpr_means+tpr_moes, np.flip(tpr_means-tpr_moes)))
 	#ax.fill(x_values, y_values, facecolor='blue', edgecolor='blue', alpha=0.3, linewidth=0, zorder=0)
@@ -77,7 +74,7 @@ for i in range(len(all_means)):
 	#ax.set_yticks([])
 	#ax.xaxis.set_label_position('top')
 	#ax.set_xlabel(display_names[i], fontsize='4')
-	ax.set_title(display_names[i], fontsize='5', y=0.91)
 
 plt.tight_layout()
-plt.savefig(save_folder+'/subplot_ROC.png', bbox_inches='tight')
+plt.legend(loc='lower right', prop={'size': 9})
+plt.savefig(save_folder+'/combined_ROC.png', bbox_inches='tight')
